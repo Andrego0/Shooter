@@ -1,4 +1,5 @@
-from random import choice
+from random import randint
+from typing import Any
 from pygame import *
 init()
 mixer.init()
@@ -42,6 +43,7 @@ class GameSprite(sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+        self.mask = mask.from_surface(self.image)
         sprites.add(self)
 
     def draw(self, window):
@@ -53,13 +55,13 @@ class Player(GameSprite):
         self.hp = 100
         self.damage = 20
         self.points = 0
-        self.speed = 3
+        self.speed = 5
         self.bg_speed = 2
 
     def update(self):
-        global hp_text
+        global hp_textda
         self.old_pos = self.rect.x, self.rect.y
-
+        
         keys = key.get_pressed() #отримуємо список натиснутих клавіш
         if keys[K_w] and self.rect.y > 0:
             self.rect.y -= self.speed
@@ -74,12 +76,30 @@ class Player(GameSprite):
         if keys[K_d] and self.rect.right < WIDTH    :
             self.rect.x += self.speed
 
+enemys = sprite.Group()
+
+class Enemy(GameSprite):
+    def __init__(self):
+        rand_x = randint(0, WIDTH-70)
+        y = -150 
+        super().__init__(enemy_img, 100, 70, rand_x, y)
+        self.speed = 2
+        enemys.add(self)
+
+    def update(self):
+        self.rect.y += self.speed
+        if self.rect.y > HEIGHT:
+            self.kill()
+
 player = Player(player_img, 100, 100,  300, 300)
 
 hp_text = font1.render(f"HP: {player.hp}", True, (255, 255, 255))
 finish_text = font2.render("GAME OVER", True, (255, 0, 0))
 
 finish = False
+Enemy()
+last_spawn_time = time.get_ticks()
+spawn_interval = randint(1000, 5000)
 
 while True:
     #оброби подію «клік за кнопкою "Закрити вікно"
@@ -91,19 +111,28 @@ while True:
                 quit()
 
     if not finish:
-        player.update()
+        now = time.get_ticks()
+        if now - last_spawn_time > spawn_interval:
+            Enemy()
+            last_spawn_time = time.get_ticks()
+            spawn_interval = randint(1000, 1500)
 
-    if player.hp <= 0:
-        finish = True
+        collide_list = sprite.spritecollide(player, enemys, False, sprite.collide_mask)
+        if collide_list:
+            finish = True
+        sprites.update()
 
-    window.blit(bg, (0,bg_y1))
-    window.blit(bg, (0,bg_y2))
-    bg_y1 += player.bg_speed
-    bg_y2 += player.bg_speed
-    if bg_y1 > HEIGHT:
-        bg_y1 = -HEIGHT
-    if bg_y2 > HEIGHT:
-        bg_y2 = -HEIGHT
+        if player.hp <= 0:
+            finish = True
+
+        window.blit(bg, (0,bg_y1))
+        window.blit(bg, (0,bg_y2))
+        bg_y1 += player.bg_speed
+        bg_y2 += player.bg_speed
+        if bg_y1 > HEIGHT:
+            bg_y1 = -HEIGHT
+        if bg_y2 > HEIGHT:
+            bg_y2 = -HEIGHT
     sprites.draw(window)
     window.blit(hp_text, (10,10))
     if finish:
